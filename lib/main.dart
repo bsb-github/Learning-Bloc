@@ -1,6 +1,6 @@
 // ignore_for_file: prefer_const_constructors
-
-import 'dart:math';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:bloc/bloc.dart';
 import 'package:flutter/material.dart';
@@ -19,20 +19,64 @@ class MyApp extends StatelessWidget {
   }
 }
 
-const names = [
-  "GetX",
-  "Provider",
-  "Riverpod",
-  "Bloc",
-];
+enum PersonUrl { person1, person2 }
 
-extension RandomElement<T> on Iterable<T> {
-  T get randomElement => elementAt(Random().nextInt(length));
+extension UrlString on PersonUrl {
+  String get urlString {
+    switch (this) {
+      case PersonUrl.person1:
+        return "http://127.0.0.1:5500/api/Person1.json";
+      case PersonUrl.person2:
+        return "http://127.0.0.1:5500/api/Person2.json";
+    }
+  }
 }
 
-class NamesCubit extends Cubit<String?> {
-  NamesCubit() : super(null);
-  void pickRandomName() => emit(names.randomElement);
+@immutable
+abstract class LoadAction {
+  const LoadAction();
+}
+
+@immutable
+class LoadPersonAction implements LoadAction {
+  final String url;
+
+  const LoadPersonAction({required this.url}) : super();
+}
+
+@immutable
+class Person {
+  final String name;
+  final num age;
+
+  const Person({
+    required this.name,
+    required this.age,
+  });
+
+  Person.fromJson(Map<String, dynamic> json)
+      : name = json["name"] as String,
+        age = json["age"] as num;
+}
+
+Future<Iterable<Person>> getPerson(String url) => HttpClient()
+    .getUrl(Uri.parse(url))
+    .then((req) => req.close())
+    .then((resp) => resp.transform(utf8.decoder).join())
+    .then((str) => json.decode(str) as List<dynamic>)
+    .then((list) => list.map((e) => Person.fromJson(e)));
+
+@immutable
+class FetchResult {
+  final Iterable<Person> person;
+  final bool isRetreivedFromCache;
+
+  const FetchResult({required this.person, required this.isRetreivedFromCache});
+
+  @override
+  String toString() {
+    return "FetchResult (isRetrievedFromCache $isRetreivedFromCache , Iterable<Person>  $person)";
+  }
 }
 
 class MyHomePage extends StatefulWidget {
@@ -42,46 +86,9 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  late final NamesCubit _namesCubit;
-
-  @override
-  void initState() {
-    // TODO: implement initState
-    _namesCubit = NamesCubit();
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    // TODO: implement dispose
-    super.dispose();
-    _namesCubit.close();
-  }
-
+  late final Bloc bloc;
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        body: StreamBuilder<String?>(
-      stream: _namesCubit.stream,
-      builder: (context, snapshot) {
-        final button = TextButton(
-            onPressed: () {
-              _namesCubit.pickRandomName();
-            },
-            child: Text("Pick random name"));
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(snapshot.data.toString()),
-              const SizedBox(
-                height: 30,
-              ),
-              button,
-            ],
-          ),
-        );
-      },
-    ));
+    return Scaffold();
   }
 }
